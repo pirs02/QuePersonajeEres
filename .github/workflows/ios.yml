@@ -1,0 +1,44 @@
+name: iOS Build and Test
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+
+    steps:
+      - name: Descargar el codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: Mostrar version de Xcode que se usara
+        run: xcodebuild -version
+
+      - name: Compilar el proyecto (build)
+        run: |
+          xcodebuild build \
+            -project QuePersonajeEres.xcodeproj \
+            -scheme QuePersonajeEres \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Instalar y lanzar la app en el simulador
+        run: |
+          UDID=$(xcrun simctl list devices available | grep "iPhone 16 " | head -n 1 | awk -F '[()]' '{print $2}')
+          xcrun simctl boot "$UDID"
+          sleep 10
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "QuePersonajeEres.app" -type d | head -n 1)
+          echo "App encontrada en: $APP_PATH"
+          xcrun simctl install "$UDID" "$APP_PATH"
+          xcrun simctl launch "$UDID" com.uveg.QuePersonajeEres
+          sleep 3
+          xcrun simctl io "$UDID" screenshot captura_pantalla.png
+
+      - name: Guardar la captura como evidencia descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: captura-simulador
+          path: captura_pantalla.png
